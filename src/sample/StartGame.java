@@ -1,10 +1,17 @@
 package sample;
 
+import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 
+import javax.imageio.ImageIO;
+import java.io.File;
 import java.util.Random;
 
 public class StartGame extends Task<Canvas> {
@@ -13,16 +20,22 @@ public class StartGame extends Task<Canvas> {
     private final int size;
     private long seed;
     private Canvas canvas;
+    private boolean saveFirst;
+    private String originalSeed;
 
 
     private GraphicsContext gc;
     private long newSeed;
     private int generation = 0;
 
-    public StartGame(int size, long seed, Canvas canvas){
+
+
+    public StartGame(int size, long seed, Canvas canvas, boolean saveFirst, String originalSeed){
         this.size = size;
         this.canvas = canvas;
         this.seed = seed;
+        this.saveFirst = saveFirst;
+        this.originalSeed = originalSeed;
     }
 
     @Override
@@ -79,14 +92,19 @@ public class StartGame extends Task<Canvas> {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            drawMap(newGrid);
+            //THIS IS A MESS
+            if(saveFirst && generation == 1){
+                Platform.runLater(this::saveFirstGeneration);
+            }
+            //yeah, took me a long time to realise this is the reason why the app freezes...
+            Platform.runLater(() -> drawMap(newGrid));
             oldMap = newGrid;
+
         }
     }
     //Method to draw 10px*10px cubes on the canvas(screen)
     private void drawMap(int[][] map){
-        //for some reason, if this Sout isn't here it get's stuck randomly.. yeah, don't ask me, I don't know either
-        System.out.println("called");
+
         for(int x = 0; x < size; x++){
             for(int y = 0; y < size; y++){
                 if(map[x][y] == 0) {
@@ -99,12 +117,27 @@ public class StartGame extends Task<Canvas> {
                 }
             }
         }
+
     }
+    //some insanely weird calculations for a pseudo random number..
     private long getRandomNumber(){
         this.newSeed = (seed * 95657388) % 6065798;
         Random rnd = new Random(newSeed);
         this.seed = rnd.nextInt();
         return seed;
     }
+    //TWO SAME METHODS IN 2 DIFFERENT CLASSES YAY
+    private void saveFirstGeneration(){
+        WritableImage image = canvas.snapshot(new SnapshotParameters(), new WritableImage((int)canvas.getWidth(), (int)canvas.getHeight()));
+
+        File file = new File(System.getProperty("user.home") + "/Desktop/" + originalSeed + "[0] .png");
+        try {
+            ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
+        } catch (Exception e) {
+            System.out.println("Unable to create file!");
+        }
+    }
+
+
 
 }
